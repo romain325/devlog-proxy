@@ -1,0 +1,16 @@
+[
+  {
+    "name": "petstore",
+    "proxyPort": 3333,
+    "port": 1080,
+    "host": "localhost",
+    "scheme": "http"
+  },
+  {
+    "name": "petstore2",
+    "proxyPort": 3335,
+    "port": 1080,
+    "host": "localhost",
+    "scheme": "http"
+  }
+]
