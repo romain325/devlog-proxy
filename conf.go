@@ -11,3 +11,4 @@ type ServerConf struct {
 type ProxyConf []ServerConf
 
 type CustomLogger func(mess string, val ...any)
+type ConfProvider func() ServerConf

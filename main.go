@@ -58,12 +58,13 @@ func readConf() ProxyConf {
 
 func (s *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger := r.Context().Value("log").(CustomLogger)
+	conf := r.Context().Value("conf").(ServerConf)
 
 	logIncoming(r, logger)
 
 	r.RequestURI = ""
-	r.URL.Scheme = "http"
-	r.URL.Host = "localhost:1080"
+	r.URL.Scheme = conf.Scheme
+	r.URL.Host = conf.Host + ":" + strconv.Itoa(conf.Port)
 
 	res, err := http.DefaultClient.Do(r)
 	if err != nil {
@@ -87,18 +88,21 @@ func (s *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func main() {
 	conf := readConf()
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	var contexts []context.Context
 
-	for _, serverConf := range conf {
+	for i := 0; i < len(conf); i++ {
 
+		ctx, ctxCancel := context.WithCancel(context.Background())
+		contexts = append(contexts, ctx)
 		server := &http.Server{
-			Addr:    ":" + strconv.Itoa(serverConf.ProxyPort),
+			Addr:    ":" + strconv.Itoa(conf[i].ProxyPort),
 			Handler: &Proxy{},
 			BaseContext: func(listener net.Listener) context.Context {
-				ctx = context.WithValue(ctx, "conf", serverConf)
+				ctx = context.WithValue(ctx, "conf", conf[i])
+
 				styles := log.DefaultStyles()
 				styles.Levels[log.InfoLevel] = lipgloss.NewStyle().
-					SetString(serverConf.Name + "[:" + strconv.Itoa(serverConf.ProxyPort) + "]").
+					SetString(conf[i].Name + "[:" + strconv.Itoa(conf[i].ProxyPort) + "]").
 					Bold(true).
 					Foreground(lipgloss.Color("#FAFAFA")).
 					Background(lipgloss.Color(getRngHexColor())).
@@ -108,7 +112,7 @@ func main() {
 				logger := log.New(os.Stdout)
 				logger.SetStyles(styles)
 
-				f, _ := os.OpenFile(serverConf.Name+".log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
+				f, _ := os.OpenFile(conf[i].Name+".log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
 
 				fileLogger := log.New(f)
 				fileLogger.SetFormatter(log.JSONFormatter)
@@ -121,18 +125,19 @@ func main() {
 			},
 		}
 
-		log.Infof("Server %s setted up", serverConf.Name)
+		log.Infof("Server %s setted up", conf[i].Name)
 
 		go func() {
 			err := server.ListenAndServe()
 			if errors.Is(err, http.ErrServerClosed) {
-				fmt.Printf("Server " + serverConf.Name + " closed")
+				fmt.Printf("Server " + conf[i].Name + " closed")
 			} else {
 				handleFatalError(err)
 			}
 			ctxCancel()
 		}()
 	}
-	<-ctx.Done()
-
+	for i := 0; i < len(contexts); i++ {
+		<-contexts[i].Done()
+	}
 }

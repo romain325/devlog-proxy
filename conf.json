@@ -7,10 +7,10 @@
     "scheme": "http"
   },
   {
-    "name": "petstore2",
+    "name": "countries",
     "proxyPort": 3335,
-    "port": 1080,
-    "host": "localhost",
-    "scheme": "http"
+    "port": 443,
+    "host": "restcountries.com",
+    "scheme": "https"
   }
 ]
